@@ -1,4 +1,4 @@
-# 📚  Hackrx 6.0 Policy Chatbot
+# 📚 Policy Chatbot
 
 This project is a sophisticated Retrieval-Augmented Generation (RAG) API built with `FastAPI`. It uses `FAISS` for vector storage, `HuggingFaceEmbeddings` for creating embeddings, and hybrid retrieval combining semantic and keyword search. The server accepts document URLs and questions, processes multiple document formats, and returns AI-generated answers using Google `Gemini` API with advanced prompt engineering.
 
@@ -58,8 +58,8 @@ gemini_api_key3=your-google-gemini-api-key
 # Secondary Gemini API key for document processing
 gemini_api_key2=your-google-gemini-api-key
 
-# Team API key for HackRX authentication
-TEAM_API_KEY=your-team-api-token-by-hackrx
+# Team API key for project authentication
+TEAM_API_KEY=your-team-api-token
 ```
 
 ### 3. Build and run with Docker Compose
@@ -144,6 +144,40 @@ Content-Type: application/json
 }
 ```
 
+### `POST /api/v1/run`
+
+**Headers:**
+
+```http
+Authorization: Bearer <your-team-api-key>
+Content-Type: application/json
+```
+
+**Request:**
+
+```json
+{
+  "documents": "https://example.com/mydoc.pdf",
+  "questions": [
+    "What is the document about?", 
+    "What are the key policy terms?",
+    "Summarize the coverage details."
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "answers": [
+    "The document discusses insurance policy terms and conditions...",
+    "Key policy terms include premium payments, coverage limits...",
+    "Coverage includes medical expenses up to $50,000..."
+  ]
+}
+```
+
 ### `GET /`
 
 Health check endpoint that returns API status.
@@ -154,6 +188,13 @@ The API uses Bearer token authentication. Include your team API key in the Autho
 
 ```bash
 curl -X POST "http://localhost:5000/api/v1/hackrx/run" \
+  -H "Authorization: Bearer your-team-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"documents": "https://example.com/doc.pdf", "questions": ["What is this about?"]}'
+```
+
+```bash
+curl -X POST "http://localhost:5000/api/v1/run" \
   -H "Authorization: Bearer your-team-api-key" \
   -H "Content-Type: application/json" \
   -d '{"documents": "https://example.com/doc.pdf", "questions": ["What is this about?"]}'
@@ -225,7 +266,7 @@ curl -X POST "http://localhost:5000/api/v1/hackrx/run" \
 |----------|---------|----------|
 | `gemini_api_key3` | Primary Gemini API key for main operations | Yes |
 | `gemini_api_key2` | Secondary Gemini API key for document processing | Yes |
-| `TEAM_API_KEY` | HackRX authentication token | Yes |
+| `TEAM_API_KEY` | Project authentication token | Yes |
 | `PINECONE_API_KEY` | Pinecone API key (currently unused) | No |
 
 ### Docker Configuration
@@ -266,4 +307,4 @@ docker-compose down && docker-compose up --build
 
 ## 🤝 Contributing
 
-This project was developed for HackRX 6.0. The codebase includes advanced RAG techniques, hybrid retrieval systems, and optimized document processing for policy and insurance document analysis.
+This project was developed for a policy analysis initiative. The codebase includes advanced RAG techniques, hybrid retrieval systems, and optimized document processing for policy and insurance document analysis.
