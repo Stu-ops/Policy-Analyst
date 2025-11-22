@@ -168,7 +168,7 @@ def main():
     with st.expander("ℹ️ About This System", expanded=False):
         st.markdown("""
         This is an **Agentic RAG** system powered by:
-        - **Brain**: LangGraph with ReAct pattern + Google Gemini 2.5 Flash (Deep Thinking)
+        - **Brain**: LangGraph with ReAct pattern + Google Gemini 2.0 Flash (Deep Thinking)
         - **Knowledge Base**: Hybrid Search (FAISS Semantic + BM25 Keyword)
         - **Data Layer**: MCP (Model Context Protocol) Server
         
@@ -335,7 +335,7 @@ def main():
         tab1, tab2, tab3, tab4 = st.tabs(["Config", "Actuarial", "Analytics", "Contradictions"])
         
         with tab1:
-            st.markdown("**Model**: Gemini 2.5 Flash")
+            st.markdown("**Model**: Gemini 2.0 Flash")
             st.markdown("**Search**: Hybrid (70/30)")
             st.markdown("**Dense**: k=14 FAISS")
             st.markdown("**Sparse**: k=9 BM25")
@@ -469,9 +469,10 @@ def main():
             
             1. **User Query** → Streamlit UI
             2. **MCP Server** → Retrieves chunks
-            3. **Hybrid Search** → FAISS + BM25
-            4. **Gemini 2.5** → Synthesizes answer
+            3. **Hybrid Search** → FAISS(70%) + BM25(30%)
+            4. **Gemini 2.0(Deep Thinking)** → Synthesizes answer
             5. **Database** → Persists history
+            6. **Monitoring** → Evaluating metrics
             6. **Response** → User with citations
             """)
 
