@@ -1,310 +1,193 @@
-# 📚 Policy Chatbot
+# 🤖 Agentic RAG Policy Analyst Platform
 
-This project is a sophisticated Retrieval-Augmented Generation (RAG) API built with `FastAPI`. It uses `FAISS` for vector storage, `HuggingFaceEmbeddings` for creating embeddings, and hybrid retrieval combining semantic and keyword search. The server accepts document URLs and questions, processes multiple document formats, and returns AI-generated answers using Google `Gemini` API with advanced prompt engineering.
+A next-generation Retrieval-Augmented Generation (RAG) system designed to interpret complex insurance policies using autonomous AI agents.
 
-## 🗂️ Project Structure
+## 🎯 Overview
 
-```text
-.
-├── app.py                  # FastAPI app entry point with async lifespan management
-├── utils/
-│   ├── DocsLoader.py      # Multi-format document loader (PDF/DOCX/PPT/Excel/Images/TXT)
-│   ├── Schemas.py         # Pydantic schemas (request/response models)
-│   └── __init__.py        
-├── .env                   # Environment variables (API keys)
-├── Dockerfile             # Docker container configuration
-├── docker-compose.yml     # Docker Compose orchestration
-├── requirements.txt       # Python dependencies
-├── README.md             # Project documentation
-└── __pycache__/          # Python cache files
-```
-
-## 🚀 Features
-
-- **Multi-format Document Processing**: Supports PDF, DOCX, PPT, Excel, JPG, PNG, TXT, and more
-- **Hybrid Retrieval System**: Combines semantic search (FAISS) with keyword search (BM25)
-- **Advanced AI Models**:
-  - Embeddings: `BAAI/bge-base-en-v1.5` (HuggingFace)
-  - LLM: `Gemini-2.5-Flash` (Google Generative AI)
-  - Reranker: `BAAI/bge-reranker-base` (optional, commented for CPU optimization)
-- **Document Caching**: In-memory vectorstore caching for faster responses
-- **Authentication**: Bearer token-based API authentication
-- **Async Processing**: Concurrent question processing with asyncio
-- **Special Handlers**: Custom logic for specific document types and use cases
-- **Chain-of-Thought Prompting**: Advanced prompt engineering for better responses
-
-## 🔧 Setup Instructions
-
-### Prerequisites
-
-- Docker and Docker Compose installed
-- Google Gemini API key
-
-### 1. Clone the repository
-
-```bash
-git clone <your-repo-url>
-cd <your-project-folder>
-```
-
-### 2. Create and configure the `.env` file
-
-In the project root, create a `.env` file with your credentials:
-
-```env
-# Primary Gemini API key for main LLM operations
-gemini_api_key3=your-google-gemini-api-key
-
-# Secondary Gemini API key for document processing
-gemini_api_key2=your-google-gemini-api-key
-
-# Team API key for project authentication
-TEAM_API_KEY=your-team-api-token
-```
-
-### 3. Build and run with Docker Compose
-
-```bash
-# Build and start the application
-docker-compose up --build
-
-# Run in detached mode
-docker-compose up -d --build
-
-# View logs
-docker-compose logs -f
-
-# Stop the application
-docker-compose down
-```
-
-The application will be available at: [http://localhost:5000](http://localhost:5000)
-
-### 4. Alternative: Direct Docker build
-
-```bash
-# Build the image
-docker build -t policy-chatbot .
-
-# Run the container
-docker run -p 5000:7860 --env-file .env policy-chatbot
-```
-
-## 🧪 Running the Application
-
-### Using Docker Compose (Recommended)
-
-```bash
-# Start the application
-docker-compose up --build
-```
-
-The application will be available at: [http://localhost:5000](http://localhost:5000)
-
-### Health Check
-
-```bash
-# Check if the API is running
-curl http://localhost:5000/
-```
-
-## 📤 API Endpoints
-
-### `POST /api/v1/hackrx/run`
-
-**Headers:**
-
-```http
-Authorization: Bearer <your-team-api-key>
-Content-Type: application/json
-```
-
-**Request:**
-
-```json
-{
-  "documents": "https://example.com/mydoc.pdf",
-  "questions": [
-    "What is the document about?", 
-    "What are the key policy terms?",
-    "Summarize the coverage details."
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "answers": [
-    "The document discusses insurance policy terms and conditions...",
-    "Key policy terms include premium payments, coverage limits...",
-    "Coverage includes medical expenses up to $50,000..."
-  ]
-}
-```
-
-### `POST /api/v1/run`
-
-**Headers:**
-
-```http
-Authorization: Bearer <your-team-api-key>
-Content-Type: application/json
-```
-
-**Request:**
-
-```json
-{
-  "documents": "https://example.com/mydoc.pdf",
-  "questions": [
-    "What is the document about?", 
-    "What are the key policy terms?",
-    "Summarize the coverage details."
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "answers": [
-    "The document discusses insurance policy terms and conditions...",
-    "Key policy terms include premium payments, coverage limits...",
-    "Coverage includes medical expenses up to $50,000..."
-  ]
-}
-```
-
-### `GET /`
-
-Health check endpoint that returns API status.
-
-## 🔑 Authentication
-
-The API uses Bearer token authentication. Include your team API key in the Authorization header:
-
-```bash
-curl -X POST "http://localhost:5000/api/v1/hackrx/run" \
-  -H "Authorization: Bearer your-team-api-key" \
-  -H "Content-Type: application/json" \
-  -d '{"documents": "https://example.com/doc.pdf", "questions": ["What is this about?"]}'
-```
-
-```bash
-curl -X POST "http://localhost:5000/api/v1/run" \
-  -H "Authorization: Bearer your-team-api-key" \
-  -H "Content-Type: application/json" \
-  -d '{"documents": "https://example.com/doc.pdf", "questions": ["What is this about?"]}'
-```
-
-## 📦 Key Dependencies
-
-### Core Framework
-
-- `fastapi==0.115.13` - Modern web API framework
-- `uvicorn[standard]==0.34.3` - ASGI server
-
-### AI & Machine Learning
-
-- `langchain==0.3.26` - LLM framework and chains
-- `langchain-community==0.3.27` - Community integrations
-- `langchain-google-genai==2.1.8` - Google Gemini AI integration
-- `langchain-huggingface==0.3.1` - HuggingFace model integrations
-- `sentence-transformers==4.1.0` - Embedding models
-- `faiss-cpu==1.7.4` - Vector similarity search
-- `rank-bm25==0.2.2` - Keyword search algorithm
-
-### Document Processing
-
-- `pymupdf==1.24.5` - PDF processing
-- `python-docx==1.1.2` - DOCX file handling
-- `python-pptx==0.6.23` - PowerPoint file processing
-- `openpyxl==3.1.2` - Excel file handling
-- `pytesseract==0.3.10` - OCR for image text extraction
-- `pillow==10.3.0` - Image processing
-- `unstructured[pytesseract]==0.12.5` - Advanced document parsing
-
-### Utilities
-
-- `requests==2.32.4` - HTTP client
-- `beautifulsoup4==4.12.2` - HTML/XML parsing
-- `pandas==2.2.2` - Data manipulation
-- `numpy==1.26.4` - Numerical computing
-- `scikit-learn==1.4.2` - Machine learning utilities
+Unlike traditional RAG chatbots that follow a simple "retrieve-then-answer" loop, this platform uses an **Agentic Workflow** powered by LangGraph. The agent autonomously plans its reasoning steps, querying a standardized data layer to retrieve specific policy clauses only when needed.
 
 ## 🏗️ Architecture
 
-### Document Processing Pipeline
+### The Brain (Agentic Orchestrator)
+- **Core**: LangGraph with Stateful ReAct Agent pattern
+- **Model**: Google Gemini 2.0 Flash with "Deep Thinking" capabilities
+- **Function**: Autonomous decision-making and complex query decomposition
 
-1. **Document Loading**: Multi-format document ingestion via URLs
-2. **Text Extraction**: OCR, parsing, and text extraction from various formats
-3. **Chunking**: Intelligent text splitting for optimal retrieval
-4. **Embedding Generation**: Convert text chunks to vector embeddings
-5. **Vector Storage**: Store embeddings in FAISS for fast similarity search
+### The Body (MCP Data Server)
+- **Protocol**: Model Context Protocol (MCP) inspired architecture
+- **RAG Layer**: Hybrid Search Engine (FAISS + BM25)
+- **Data Handling**: Decoupled document parsing (PDF/DOCX/Excel)
 
-### Retrieval System
+## ✨ Key Features
 
-- **Hybrid Approach**: Combines semantic (FAISS) and keyword (BM25) search
-- **Ensemble Retriever**: Weighted combination (70% semantic, 30% keyword)
-- **Reranking**: Optional cross-encoder reranking for improved relevance
-- **Caching**: In-memory vectorstore caching for performance
+### 1. Agentic RAG with Deep Thinking
+- Leverages Gemini 2.0's reasoning blocks for ambiguous queries
+- Cross-references contradictory policy clauses
+- Autonomous planning and tool selection
 
-### AI Processing
+### 2. Hybrid Search Engine
+- **Dense Retrieval**: Gemini text-embedding-004 (768-dim) stored in FAISS
+- **Sparse Retrieval**: BM25 for exact keyword matching (policy IDs, specific terms)
+- **Optimized Parameters**: k=14 dense, k=9 sparse, final k=5
+- **Weighting**: 70% Semantic / 30% Keyword
 
-- **Primary LLM**: Gemini-2.5-Flash for question answering
-- **Secondary LLM**: Gemini-2.0-Flash for document processing
-- **Advanced Prompting**: Chain-of-thought reasoning with critique and revision
+### 3. Standardized Data Layer
+- MCP-inspired architecture isolates document processing
+- Easily swappable components
+- Support for PDF, DOCX, Excel, and TXT files
+
+### 4. Interactive Web Interface
+- Document upload and management
+- Real-time chat with policy analysis
+- View retrieved policy sections with relevance scores
+- Citation tracking with source and page numbers
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.11+
+- Google Gemini API Key (get one at https://aistudio.google.com/apikey)
+
+### Installation
+
+The system is pre-configured with all dependencies. Simply:
+
+1. Add your `GEMINI_API_KEY` in Streamlit Interface Secrets
+2. Click "Run" to start the application
+
+### Using the Platform
+
+1. **Upload Documents**: Use the file uploader to add insurance policy documents (PDF, DOCX, Excel, or TXT)
+2. **Wait for Processing**: The system will chunk and index your documents
+3. **Ask Questions**: Use natural language to query your policies
+4. **View Results**: See AI-generated answers with supporting evidence from policy documents
+
+## 📋 Example Queries
+
+- "What are the coverage limits for property damage?"
+- "Explain the deductible policy for medical claims"
+- "What exclusions apply to flood damage?"
+- "Compare the premium calculation methods across policies"
+- "Are pre-existing conditions covered under this health policy?"
+- "What is the claims process timeline for auto insurance?"
+
+## 🛠️ Technical Stack
+
+- **Frontend**: Streamlit
+- **AI Orchestration**: LangGraph
+- **LLM**: Google Gemini 2.5 Flash (Thinking)
+- **Vector Search**: FAISS
+- **Keyword Search**: BM25 (rank-bm25)
+- **Document Processing**: PyPDF2, python-docx, openpyxl
+- **Embeddings**: Google text-embedding-004
+
+## 📁 Project Structure
+
+```
+.
+├── app.py                      # Main Streamlit application
+├── actuarial_tools.py          # Actuarial calculation tools
+├── agentic_orchestrator.py     # LangGraph ReAct agent
+├── contradiction_detection.py  # Contradiction detection logic
+├── database.py                 # Database interactions
+├── document_processor.py       # Multi-format document parser
+├── hybrid_search.py            # FAISS + BM25 search engine
+├── mcp_server.py               # MCP-style data server
+├── performance_monitor.py      # Performance monitoring
+├── sample_documents/           # Sample insurance policies
+│   ├── auto_insurance_policy.txt
+│   ├── health_insurance_policy.txt
+│   └── home_insurance_policy.txt
+└── README.md
+```
+
+## 🎓 How It Works
+
+### 1. Document Processing
+Documents are chunked into ~500-word segments with 50-word overlap for context preservation.
+
+### 2. Indexing
+Each chunk is:
+- Embedded using Gemini text-embedding-004 (768 dimensions)
+- Indexed in FAISS for semantic similarity search
+- Tokenized and indexed in BM25 for keyword matching
+
+### 3. Query Processing
+When you ask a question:
+1. LangGraph agent analyzes the query
+2. Agent decides if it needs to search documents
+3. Hybrid search retrieves top-k relevant chunks
+4. Agent synthesizes answer using retrieved context
+5. Response includes citations and source references
+
+### 4. Agentic Reasoning
+The ReAct pattern allows the agent to:
+- Think through complex multi-step queries
+- Search multiple times if needed
+- Cross-reference different policy sections
+- Provide nuanced answers to ambiguous questions
 
 ## 🔧 Configuration
 
-### Environment Variables
+Current optimized settings:
+- **Semantic Weight**: 0.7 (70%)
+- **Keyword Weight**: 0.3 (30%)
+- **Dense Retrieval**: k=14
+- **Sparse Retrieval**: k=9
+- **Final Results**: k=5
+- **Chunk Size**: 500 words
+- **Chunk Overlap**: 50 words
 
-| Variable | Purpose | Required |
-|----------|---------|----------|
-| `gemini_api_key3` | Primary Gemini API key for main operations | Yes |
-| `gemini_api_key2` | Secondary Gemini API key for document processing | Yes |
-| `TEAM_API_KEY` | Project authentication token | Yes |
-| `PINECONE_API_KEY` | Pinecone API key (currently unused) | No |
+## 🌟 Advanced Features
 
-### Docker Configuration
+### Model Context Protocol (MCP)
+The data layer follows MCP principles:
+- **Tools**: Search functionality exposed as executable tools
+- **Resources**: Documents served as standardized resources
+- **Isolation**: Document parsing logic is decoupled from the agent
 
-- **Port Mapping**: Host port 5000 → Container port 7860
-- **Container Name**: `myapp`
-- **Restart Policy**: `unless-stopped`
-- **Environment**: Loaded from `.env` file
+### ReAct Pattern
+The agent follows a Reasoning + Acting loop:
+1. **Reason**: Analyze the query and plan next steps
+2. **Act**: Execute search tools when needed
+3. **Observe**: Review search results
+4. **Repeat**: Continue until sufficient information is gathered
+5. **Answer**: Synthesize final response
 
-## 📊 Performance Features
+## 📊 Performance
 
-- **Async Processing**: Concurrent handling of multiple questions
-- **Model Preloading**: ML models loaded during application startup
-- **Document Caching**: Vectorstores cached in memory for repeated requests
-- **Efficient Retrieval**: Optimized search parameters (k=14 for dense, k=9 for sparse)
+- Supports documents up to thousands of pages
+- Sub-second search latency
+- Handles ambiguous and complex queries
+- Cross-references multiple policy documents simultaneously
 
-## 🚨 Troubleshooting
+## 🔐 Security
 
-### Common Issues
-
-1. **Missing API Keys**: Ensure all required environment variables are set
-2. **Port Conflicts**: Change host port in `docker-compose.yml` if 5000 is occupied
-3. **Memory Issues**: Large documents may require more RAM for processing
-4. **Model Downloads**: First run downloads embedding models to `/tmp/e5-large-v2`
-
-### Debugging
-
-```bash
-# View application logs
-docker-compose logs -f app
-
-# Check container status
-docker-compose ps
-
-# Rebuild after changes
-docker-compose down && docker-compose up --build
-```
+- API keys stored securely in environment variables
+- No data persistence (session-based only)
+- Documents processed in memory only
 
 ## 🤝 Contributing
 
-This project was developed for a policy analysis initiative. The codebase includes advanced RAG techniques, hybrid retrieval systems, and optimized document processing for policy and insurance document analysis.
+This is a demonstration platform showcasing agentic RAG architecture. Feel free to extend it with:
+- Additional document formats
+- Database persistence
+- Multi-user support
+- Actuarial calculation tools
+- Policy comparison features
+
+## 📄 License
+
+This project is for educational and demonstration purposes.
+
+## 🙏 Acknowledgments
+
+Built with:
+- Google Gemini AI
+- LangChain & LangGraph
+- Meta's FAISS
+- The open-source community
+
+---
+
+**Note**: This system is designed for insurance policy analysis but can be adapted for any domain requiring intelligent document retrieval and analysis.
