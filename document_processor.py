@@ -4,7 +4,6 @@ from pathlib import Path
 import PyPDF2
 from docx import Document
 import pandas as pd
-import numpy as np
 
 
 class DocumentProcessor:
@@ -111,6 +110,10 @@ class DocumentProcessor:
         df = pd.read_excel(file_path, sheet_name=None)
         
         for sheet_name, sheet_df in df.items():
+            # Replace NaN/NaT values with empty string to avoid "NaN" in indexed text
+            sheet_df = sheet_df.fillna('')
+            # Convert all columns to string to avoid type issues
+            sheet_df = sheet_df.astype(str)
             sheet_text = f"Sheet: {sheet_name}\n"
             sheet_text += sheet_df.to_string(index=False)
             
@@ -136,8 +139,19 @@ class DocumentProcessor:
         text_chunks = []
         metadata = []
         
-        with open(file_path, 'r', encoding='utf-8') as file:
-            text = file.read()
+        # Try multiple encodings for compatibility with different file types
+        text = None
+        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+        for encoding in encodings:
+            try:
+                with open(file_path, 'r', encoding=encoding) as file:
+                    text = file.read()
+                break
+            except (UnicodeDecodeError, UnicodeError):
+                continue
+        
+        if text is None:
+            raise ValueError(f"Could not decode text file {file_path} with any supported encoding")
         
         chunks = self._chunk_text(text, chunk_size=500, overlap=50)
         
@@ -158,10 +172,15 @@ class DocumentProcessor:
     def _chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
         words = text.split()
         chunks = []
-        
-        for i in range(0, len(words), chunk_size - overlap):
+
+        # Validate chunk_size and overlap to prevent infinite loop
+        step = max(1, chunk_size - overlap)
+        if overlap >= chunk_size:
+            step = max(1, chunk_size // 2)
+
+        for i in range(0, len(words), step):
             chunk = ' '.join(words[i:i + chunk_size])
             if chunk:
                 chunks.append(chunk)
-        
+
         return chunks if chunks else [text]

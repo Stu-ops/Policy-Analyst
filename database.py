@@ -4,15 +4,28 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2 import pool
 
 class DatabaseManager:
     def __init__(self):
         self.conn_string = os.environ.get("DATABASE_URL")
         if not self.conn_string:
             raise ValueError("DATABASE_URL not found in environment variables")
+        # Thread-safe connection pool (min 1, max 10 connections)
+        self._pool = pool.ThreadedConnectionPool(1, 10, self.conn_string)
     
     def _get_connection(self):
-        return psycopg2.connect(self.conn_string)
+        return self._pool.getconn()
+    
+    def _put_connection(self, conn):
+        """Return connection to pool gracefully"""
+        try:
+            self._pool.putconn(conn)
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
     
     def initialize_schema(self):
         """Create all required tables"""
@@ -58,6 +71,8 @@ class DatabaseManager:
                 )
             ''')
             
+            # DEAD CODE: 'analytics' table is created here but never written to or read from
+            # anywhere in the codebase. Consider removing this table creation.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS analytics (
                     id SERIAL PRIMARY KEY,
@@ -70,6 +85,9 @@ class DatabaseManager:
                 )
             ''')
             
+            # DEAD CODE: 'contradictions' table is created here but never written to or read from.
+            # Contradictions are detected in-memory by contradiction_detector.py and never persisted.
+            # Consider removing this table creation.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS contradictions (
                     id SERIAL PRIMARY KEY,
@@ -87,54 +105,12 @@ class DatabaseManager:
             
             conn.commit()
             print("Database schema initialized successfully")
+        except Exception:
+            conn.rollback()
+            raise
         finally:
             cursor.close()
-            conn.close()
-    
-    def add_document(self, filename: str, file_type: str) -> int:
-        """Add a document to the database and return its ID"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute('''
-                INSERT INTO documents (filename, file_type) 
-                VALUES (%s, %s)
-                RETURNING id
-            ''', (filename, file_type))
-            
-            doc_id = cursor.fetchone()[0]
-            conn.commit()
-            return doc_id
-        finally:
-            cursor.close()
-            conn.close()
-    
-    def add_chunks(self, document_id: int, chunks: List[Dict[str, Any]]):
-        """Add chunks for a document"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            for i, chunk in enumerate(chunks):
-                cursor.execute('''
-                    INSERT INTO document_chunks (document_id, chunk_index, content, page_number)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (document_id, chunk_index) DO NOTHING
-                ''', (
-                    document_id,
-                    i,
-                    chunk.get('content', ''),
-                    chunk.get('page', None)
-                ))
-            
-            cursor.execute('UPDATE documents SET chunks_count = %s WHERE id = %s',
-                          (len(chunks), document_id))
-            
-            conn.commit()
-        finally:
-            cursor.close()
-            conn.close()
+            self._put_connection(conn)
     
     def add_chat_message(self, session_id: str, query: str, response: str, 
                         search_results: List[Dict] = None, tokens: int = 0):
@@ -155,9 +131,12 @@ class DatabaseManager:
             ))
             
             conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
         finally:
             cursor.close()
-            conn.close()
+            self._put_connection(conn)
     
     def get_chat_history(self, session_id: str, limit: int = 50) -> List[Dict]:
         """Get chat history for a session"""
@@ -174,73 +153,10 @@ class DatabaseManager:
             ''', (session_id, limit))
             
             return cursor.fetchall()
+        except Exception:
+            conn.rollback()
+            raise
         finally:
             cursor.close()
-            conn.close()
+            self._put_connection(conn)
     
-    def add_analytics(self, session_id: str, query_type: str, num_docs: int,
-                     response_time_ms: float, relevance_score: float):
-        """Log analytics data"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute('''
-                INSERT INTO analytics (session_id, query_type, num_documents_searched, 
-                                      response_time_ms, relevance_score)
-                VALUES (%s, %s, %s, %s, %s)
-            ''', (session_id, query_type, num_docs, response_time_ms, relevance_score))
-            
-            conn.commit()
-        finally:
-            cursor.close()
-            conn.close()
-    
-    def get_documents(self) -> List[Dict]:
-        """Get all documents"""
-        conn = self._get_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
-        try:
-            cursor.execute('SELECT id, filename, file_type, chunks_count, created_at, version FROM documents')
-            return cursor.fetchall()
-        finally:
-            cursor.close()
-            conn.close()
-    
-    def flag_contradiction(self, doc1_id: int, doc2_id: int, clause1: str, 
-                          clause2: str, severity: str, description: str):
-        """Flag a contradiction between two documents"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute('''
-                INSERT INTO contradictions (document1_id, document2_id, clause1_text, 
-                                          clause2_text, severity, description)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ''', (doc1_id, doc2_id, clause1, clause2, severity, description))
-            
-            conn.commit()
-        finally:
-            cursor.close()
-            conn.close()
-    
-    def get_contradictions(self) -> List[Dict]:
-        """Get all flagged contradictions"""
-        conn = self._get_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
-        try:
-            cursor.execute('''
-                SELECT id, d1.filename as doc1, d2.filename as doc2, severity, description, flagged_at
-                FROM contradictions c
-                JOIN documents d1 ON c.document1_id = d1.id
-                JOIN documents d2 ON c.document2_id = d2.id
-                ORDER BY flagged_at DESC
-            ''')
-            
-            return cursor.fetchall()
-        finally:
-            cursor.close()
-            conn.close()

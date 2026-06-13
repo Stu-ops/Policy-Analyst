@@ -5,10 +5,7 @@ streamlit
 google-genai
 
 # LLM Orchestration & Agent Framework
-langchain
 langchain-core
-langchain-community
-langchain-google-genai
 langgraph
 
 # Vector Search & Embeddings
@@ -30,10 +27,4 @@ openpyxl
 rank-bm25
 
 # Utilities
-sift-stack-py
-
-# Optional: For development
-# pytest
-# pytest-cov
-# black
-# flake8
+python-dotenv

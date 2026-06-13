@@ -1,8 +1,6 @@
-import time
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from collections import defaultdict
-import json
 
 
 class PerformanceMonitor:
@@ -30,8 +28,9 @@ class PerformanceMonitor:
         self.metrics["queries"].append(metric)
         self.query_count += 1
         self.total_processing_time += response_time
-        if not success:
-            self.error_count += 1
+        # Note: error_count is NOT incremented here to avoid double-counting
+        # with record_error() which is also called on failure by the orchestrator.
+        # Callers should use record_error() for the error increment.
     
     def record_search(self, query: str, num_results: int, search_time: float, cached: bool = False):
         """Record search metrics"""
@@ -43,10 +42,6 @@ class PerformanceMonitor:
             "cached": cached
         }
         self.metrics["searches"].append(metric)
-        if cached:
-            self.cache_hits += 1
-        else:
-            self.cache_misses += 1
     
     def record_error(self, error_type: str, error_msg: str, context: str = ""):
         """Record error metrics"""
@@ -58,16 +53,6 @@ class PerformanceMonitor:
         }
         self.metrics["errors"].append(metric)
         self.error_count += 1
-    
-    def record_embedding(self, num_documents: int, embedding_time: float):
-        """Record embedding performance"""
-        metric = {
-            "timestamp": datetime.now().isoformat(),
-            "num_documents": num_documents,
-            "embedding_time": embedding_time,
-            "avg_time_per_doc": embedding_time / num_documents if num_documents > 0 else 0
-        }
-        self.metrics["embeddings"].append(metric)
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get comprehensive statistics"""
@@ -93,6 +78,8 @@ class PerformanceMonitor:
         """Get recent errors"""
         return self.metrics["errors"][-limit:] if "errors" in self.metrics else []
     
+    # DEAD CODE: get_recent_queries is defined but never called from anywhere in the codebase.
+    # Consider removing this method, or wire it into the Analytics tab in app.py for display.
     def get_recent_queries(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent queries"""
         return self.metrics["queries"][-limit:] if "queries" in self.metrics else []

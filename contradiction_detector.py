@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 from enum import Enum
 import re
 
@@ -77,8 +77,10 @@ class ContradictionDetector:
         """Check if two clauses are contradictory"""
         negation_words = ['not', 'no', 'never', 'exclude', 'excluded', 'cannot', "can't"]
         
-        has_negation1 = any(word in clause1 for word in negation_words)
-        has_negation2 = any(word in clause2 for word in negation_words)
+        # Use word boundary matching to avoid false positives (e.g. "not" matching "notwithstanding")
+        import re
+        has_negation1 = any(re.search(r'\b' + re.escape(word) + r'\b', clause1) for word in negation_words)
+        has_negation2 = any(re.search(r'\b' + re.escape(word) + r'\b', clause2) for word in negation_words)
         
         if has_negation1 == has_negation2:
             return False
@@ -86,7 +88,11 @@ class ContradictionDetector:
         words1 = set(clause1.split())
         words2 = set(clause2.split())
         
-        overlap = len(words1.intersection(words2)) / max(len(words1), len(words2))
+        max_len = max(len(words1), len(words2))
+        if max_len == 0:
+            return False
+        
+        overlap = len(words1.intersection(words2)) / max_len
         
         return overlap > 0.3
     
@@ -108,10 +114,11 @@ class ContradictionDetector:
     
     def _generate_description(self, clause_type: str, clause1: str, clause2: str) -> str:
         """Generate description of contradiction"""
+        import re
         negation_words = ['not', 'no', 'never', 'exclude', 'excluded', 'cannot']
         
-        is_negation1 = any(word in clause1 for word in negation_words)
-        is_negation2 = any(word in clause2 for word in negation_words)
+        is_negation1 = any(re.search(r'\b' + re.escape(word) + r'\b', clause1) for word in negation_words)
+        is_negation2 = any(re.search(r'\b' + re.escape(word) + r'\b', clause2) for word in negation_words)
         
         if is_negation1 and not is_negation2:
             return f"Document 1 excludes {clause_type} while Document 2 includes it"
@@ -129,36 +136,3 @@ class ContradictionDetector:
             'low': 1
         }
         return severity_map.get(severity, 0)
-    
-    def cross_reference_clauses(self, documents: List[Dict[str, Any]], 
-                               search_query: str) -> List[Dict[str, Any]]:
-        """Find related clauses across documents matching a query"""
-        matching_clauses = []
-        
-        for doc in documents:
-            text = doc.get('content', '').lower()
-            query_lower = search_query.lower()
-            
-            if query_lower in text:
-                sentences = re.split(r'[.!?]\s+', text)
-                
-                for sentence in sentences:
-                    if query_lower in sentence:
-                        matching_clauses.append({
-                            'document': doc.get('source', 'Unknown'),
-                            'page': doc.get('page', 'N/A'),
-                            'clause': sentence.strip(),
-                            'relevance': self._calculate_relevance(sentence, search_query)
-                        })
-        
-        return sorted(matching_clauses, key=lambda x: x['relevance'], reverse=True)
-    
-    def _calculate_relevance(self, text: str, query: str) -> float:
-        """Calculate relevance score"""
-        text_lower = text.lower()
-        query_lower = query.lower()
-        
-        query_words = query_lower.split()
-        matches = sum(1 for word in query_words if word in text_lower)
-        
-        return matches / len(query_words) if query_words else 0

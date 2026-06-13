@@ -1,7 +1,6 @@
 from typing import List, Dict, Any, Optional
 from hybrid_search import HybridSearchEngine
 from document_processor import DocumentProcessor
-import time
 
 
 class MCPDataServer:
@@ -33,11 +32,10 @@ class MCPDataServer:
         except Exception as e:
             return {
                 'error': str(e),
-                'resource_id': None
+                'resource_id': None,
+                'num_chunks': 0,
+                'source': None
             }
-    
-    def add_documents_from_uploaded(self, documents: List[str], metadata: List[Dict[str, Any]]):
-        self.search_engine.add_documents(documents, metadata)
     
     def execute_search_tool(self, query: str, k: int = 5) -> Dict[str, Any]:
         try:
@@ -57,15 +55,25 @@ class MCPDataServer:
                 'error': str(e)
             }
     
-    def get_resource(self, resource_id: str) -> Optional[Dict[str, Any]]:
-        return self.resources.get(resource_id)
-    
-    def list_resources(self) -> List[str]:
-        return list(self.resources.keys())
-    
     def clear_all(self):
         self.resources = {}
         self.search_engine.clear()
+    
+    def get_all_documents(self) -> List[Dict[str, Any]]:
+        """Get all indexed documents with their content and metadata safely"""
+        docs = self.search_engine.documents
+        metas = self.search_engine.metadata
+        # Ensure lists are aligned; zip() would silently truncate if out of sync
+        if len(docs) != len(metas):
+            min_len = min(len(docs), len(metas))
+            return [
+                {"content": docs[i], "source": metas[i].get('source', 'Unknown')}
+                for i in range(min_len)
+            ]
+        return [
+            {"content": chunk, "source": meta.get('source', 'Unknown')}
+            for chunk, meta in zip(docs, metas)
+        ]
     
     def get_statistics(self) -> Dict[str, Any]:
         try:

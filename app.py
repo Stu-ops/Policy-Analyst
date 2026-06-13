@@ -3,14 +3,20 @@ import os
 from pathlib import Path
 import tempfile
 import uuid
-import time
-from datetime import datetime
 from mcp_server import MCPDataServer
 from agentic_orchestrator import AgenticOrchestrator
-from document_processor import DocumentProcessor
 from database import DatabaseManager
-from actuarial_tools import ActuarialCalculator, RiskLevel
+from actuarial_tools import ActuarialCalculator
 from contradiction_detector import ContradictionDetector
+
+# Try to load .env file for local development (optional)
+try:
+    from dotenv import load_dotenv
+    env_path = Path('.env')
+    if env_path.exists():
+        load_dotenv()
+except ImportError:
+    pass
 
 
 st.set_page_config(
@@ -63,9 +69,6 @@ def initialize_minimal_state():
     
     if 'uploaded_files' not in st.session_state:
         st.session_state.uploaded_files = []
-    
-    if 'document_data' not in st.session_state:
-        st.session_state.document_data = {}
     
     if 'performance_monitor' not in st.session_state:
         st.session_state.performance_monitor = None
@@ -141,18 +144,22 @@ def process_uploaded_file(uploaded_file):
         st.warning("⚠️ Please validate API key first to process documents")
         return None
     
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(uploaded_file.name).suffix) as tmp_file:
-        tmp_file.write(uploaded_file.getvalue())
-        tmp_path = tmp_file.name
-    
+    tmp_path = None
     try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(uploaded_file.name).suffix) as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            tmp_path = tmp_file.name
+        
         result = st.session_state.mcp_server.add_resource(tmp_path, resource_id=uploaded_file.name)
         return result
     except Exception as e:
-        raise Exception(f"Error processing file {uploaded_file.name}: {str(e)}")
+        raise Exception(f"Error processing file {uploaded_file.name}: {str(e)}") from e
     finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def main():
@@ -257,13 +264,19 @@ def main():
         user_query = st.chat_input("Ask a question about your insurance policies...")
         
         if user_query:
+            # Get latest stats from MCP server (avoid stale data)
+            if st.session_state.mcp_server:
+                current_stats = st.session_state.mcp_server.get_statistics()
+            else:
+                current_stats = {'num_resources': 0, 'total_chunks': 0, 'resource_list': []}
+            
             # Check API key before asking question
             if not st.session_state.api_key_validated:
                 st.error("⚠️ **Please validate your API key in the sidebar first!**")
                 st.info("👈 Scroll to the sidebar and enter your Gemini API key to ask questions")
             elif st.session_state.mcp_server is None or st.session_state.orchestrator is None:
                 st.error("⚠️ System not initialized. Please refresh the page.")
-            elif stats['total_chunks'] == 0:
+            elif current_stats['total_chunks'] == 0:
                 st.warning("⚠️ Please upload policy documents before asking questions.")
             else:
                 st.session_state.chat_history.append({
@@ -310,7 +323,7 @@ def main():
                                         search_results
                                     )
                                 except Exception as e:
-                                    pass
+                                    st.warning(f"Could not save chat history: {str(e)}")
                             
                             response_time = response.get("response_time", 0)
                             
@@ -324,7 +337,9 @@ def main():
                             })
                         except Exception as e:
                             st.error(f"Error: {str(e)}")
-                            st.session_state.chat_history.pop()
+                            # Only pop if we actually appended (safe guard against empty list)
+                            if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "user":
+                                st.session_state.chat_history.pop()
     
     st.divider()
     
@@ -355,32 +370,81 @@ def main():
         with tab2:
             st.subheader("💰 Actuarial Calculator")
             
-            policy_type = st.selectbox("Policy Type", ["auto", "health", "home", "life"])
-            risk_factor = st.slider("Risk Factor", 0.5, 2.0, 1.0)
-            coverage_amount = st.number_input("Coverage Amount ($)", 1000, 1000000, 100000)
-            deductible = st.number_input("Deductible ($)", 0, coverage_amount, 500)
+            calc_tab1, calc_tab2, calc_tab3 = st.tabs(["Premiums", "Claim Payout", "Risk Analysis"])
             
-            if st.button("Calculate Premium"):
-                try:
-                    calc = st.session_state.calculator.calculate_premium(
-                        policy_type,
-                        {"overall_risk": risk_factor}
-                    )
-                    
-                    st.success("Premium Calculated!")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.metric("Annual Premium", f"${calc.annual_premium:,.2f}")
-                        st.metric("Monthly Premium", f"${calc.monthly_premium:,.2f}")
-                    with col_b:
-                        st.metric("Risk Factor", f"{calc.risk_factor:.2f}x")
-                        
-                        deduct_info = st.session_state.calculator.calculate_deductible_impact(
-                            coverage_amount, deductible
+            with calc_tab1:
+                policy_type = st.selectbox("Policy Type", ["auto", "health", "home", "life"], key="policy_type")
+                risk_factor = st.slider("Risk Factor", 0.5, 2.0, 1.0, key="risk_factor")
+                coverage_amount = st.number_input("Coverage Amount ($)", 1000, 1000000, 100000, key="cov_amt")
+                deductible = st.number_input("Deductible ($)", 0, 100000, 500, key="ded")
+                
+                if st.button("Calculate Premium", key="calc_prem_btn"):
+                    try:
+                        calc = st.session_state.calculator.calculate_premium(
+                            policy_type,
+                            {"overall_risk": risk_factor}
                         )
-                        st.metric("Effective Coverage", f"${deduct_info['effective_coverage']:,.0f}")
-                except Exception as e:
-                    st.error(f"Calculation error: {e}")
+                        
+                        st.success("Premium Calculated!")
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            st.metric("Annual Premium", f"${calc.annual_premium:,.2f}")
+                            st.metric("Monthly Premium", f"${calc.monthly_premium:,.2f}")
+                        with col_b:
+                            st.metric("Risk Factor", f"{calc.risk_factor:.2f}x")
+                            
+                            deduct_info = st.session_state.calculator.calculate_deductible_impact(
+                                coverage_amount, deductible
+                            )
+                            st.metric("Effective Coverage", f"${deduct_info['effective_coverage']:,.0f}")
+                    except Exception as e:
+                        st.error(f"Calculation error: {e}")
+            
+            with calc_tab2:
+                st.markdown("### Claim Payout Estimator")
+                claim_amount = st.number_input("Claim Amount ($)", 0, 500000, 10000, key="claim_amt")
+                claim_coverage = st.number_input("Coverage Limit ($)", 0, 1000000, 100000, key="claim_cov")
+                claim_deductible = st.number_input("Deductible ($)", 0, 50000, 1000, key="claim_ded")
+                coinsurance = st.slider("Coinsurance (%)", 50, 100, 80, key="coinsure")
+                
+                if st.button("Calculate Payout", key="calc_payout_btn"):
+                    try:
+                        payout = st.session_state.calculator.calculate_claim_payout(
+                            claim_amount, claim_coverage, claim_deductible, coinsurance
+                        )
+                        st.success("Payout Estimated!")
+                        col_a, col_b, col_c = st.columns(3)
+                        with col_a:
+                            st.metric("Insurer Payout", f"${payout['insurer_payout']:,.2f}")
+                            st.metric("After Deductible", f"${payout['after_deductible']:,.2f}")
+                        with col_b:
+                            st.metric("Your Out-of-Pocket", f"${payout['member_out_of_pocket']:,.2f}")
+                            st.metric("Coinsurance Applied", f"{payout['coverage_applied']}%")
+                        with col_c:
+                            savings = payout['claim_submitted'] - payout['insurer_payout']
+                            st.metric("You Save", f"${savings:,.2f}")
+                            st.metric("Submitted Amount", f"${payout['claim_submitted']:,.2f}")
+                    except Exception as e:
+                        st.error(f"Payout error: {e}")
+            
+            with calc_tab3:
+                st.markdown("### Loss Frequency Estimator")
+                policy_years = st.number_input("Policy Period (Years)", 1, 30, 5, key="pol_years")
+                claim_prob = st.slider("Annual Claim Probability", 0.01, 0.99, 0.1, 0.01, format="%.2f", key="claim_prob")
+                
+                if st.button("Estimate Risk", key="risk_btn"):
+                    try:
+                        freq = st.session_state.calculator.estimate_loss_frequency(policy_years, claim_prob)
+                        st.success("Risk Estimated!")
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            st.metric("Prob. No Claims", f"{freq['probability_no_claims']:.1%}")
+                            st.metric("Expected Claims", f"{freq['expected_number_of_claims']:.2f}")
+                        with col_b:
+                            st.metric("Prob. ≥1 Claim", f"{freq['probability_at_least_one_claim']:.1%}")
+                            st.metric("Policy Period", f"{freq['policy_period_years']} years")
+                    except Exception as e:
+                        st.error(f"Risk estimation error: {e}")
         
         with tab3:
             st.subheader("📊 Query Analytics & Performance")
@@ -439,15 +503,13 @@ def main():
                     else:
                         with st.spinner("Analyzing for contradictions..."):
                             try:
-                                docs = [
-                                    {"content": chunk, "source": metadata.get('source', 'Unknown')}
-                                    for chunk, metadata in zip(
-                                        st.session_state.mcp_server.search_engine.documents,
-                                        st.session_state.mcp_server.search_engine.metadata
-                                    )
-                                ]
+                                docs = st.session_state.mcp_server.get_all_documents()
                                 
-                                contradictions = st.session_state.detector.detect_contradictions(docs[:5])
+                                # NOTE: Limiting to first 5 documents for performance.
+                                # If more than 5 documents are loaded, contradictions between
+                                # documents beyond the 5th will not be detected.
+                                max_docs_for_analysis = min(len(docs), 5)
+                                contradictions = st.session_state.detector.detect_contradictions(docs[:max_docs_for_analysis])
                                 
                                 if contradictions:
                                     st.warning(f"Found {len(contradictions)} potential contradictions!")
@@ -473,7 +535,7 @@ def main():
             4. **Gemini 2.0(Deep Thinking)** → Synthesizes answer
             5. **Database** → Persists history
             6. **Monitoring** → Evaluating metrics
-            6. **Response** → User with citations
+            7. **Response** → User with citations
             """)
 
 

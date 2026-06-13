@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from dataclasses import dataclass
 from enum import Enum
 
@@ -13,6 +13,10 @@ class PremiumCalculation:
     breakdown: Dict[str, float]
 
 
+# DEAD CODE: RiskLevel enum is defined but never instantiated anywhere in the codebase.
+# The calculate_premium method has a branch for isinstance(value, RiskLevel) but no caller
+# ever passes a RiskLevel instance — all callers pass plain floats.
+# Consider removing this entire class and the isinstance branch in calculate_premium.
 class RiskLevel(Enum):
     LOW = 0.8
     MEDIUM = 1.0
@@ -37,6 +41,9 @@ class ActuarialCalculator:
         breakdown = {}
         
         for factor, value in risk_factors.items():
+            # DEAD CODE: isinstance(value, RiskLevel) branch is never reached
+            # because RiskLevel is never instantiated by any caller.
+            # All callers pass plain floats directly.
             if isinstance(value, RiskLevel):
                 multiplier = value.value
             elif isinstance(value, (int, float)):
@@ -79,10 +86,8 @@ class ActuarialCalculator:
             claim_amount = coverage_limit
         
         after_deductible = max(0, claim_amount - deductible)
-        
         coinsurance_multiplier = coinsurance_percentage / 100
         payout = after_deductible * coinsurance_multiplier
-        
         out_of_pocket = claim_amount - payout
         
         return {
@@ -95,8 +100,6 @@ class ActuarialCalculator:
     
     def estimate_loss_frequency(self, policy_years: int, annual_claim_probability: float) -> Dict[str, Any]:
         """Estimate likelihood of claims over a period"""
-        import math
-        
         prob_no_claims = (1 - annual_claim_probability) ** policy_years
         prob_at_least_one = 1 - prob_no_claims
         expected_claims = policy_years * annual_claim_probability
@@ -108,64 +111,3 @@ class ActuarialCalculator:
             'probability_at_least_one_claim': prob_at_least_one,
             'expected_number_of_claims': expected_claims
         }
-    
-    def calculate_net_present_value(self, premiums: List[float], claims: List[float], 
-                                   discount_rate: float = 0.05) -> Dict[str, float]:
-        """Calculate NPV for an insurance product"""
-        npv_premiums = sum(p / ((1 + discount_rate) ** i) for i, p in enumerate(premiums))
-        npv_claims = sum(c / ((1 + discount_rate) ** i) for i, c in enumerate(claims))
-        
-        net_npv = npv_premiums - npv_claims
-        loss_ratio = npv_claims / npv_premiums if npv_premiums > 0 else 0
-        
-        return {
-            'total_premiums_npv': npv_premiums,
-            'total_claims_npv': npv_claims,
-            'net_npv': net_npv,
-            'loss_ratio': loss_ratio,
-            'combined_ratio': loss_ratio + 0.25  # Add 25% for expenses
-        }
-    
-    def extract_policy_numbers(self, policy_text: str) -> Dict[str, Any]:
-        """Extract key numeric data from policy text"""
-        import re
-        
-        results = {
-            'coverage_limits': [],
-            'deductibles': [],
-            'premiums': [],
-            'percentages': []
-        }
-        
-        coverage_patterns = [
-            r'\$[\d,]+\s*(?:coverage|limit)',
-            r'(?:coverage|limit).*?\$[\d,]+'
-        ]
-        
-        for pattern in coverage_patterns:
-            matches = re.findall(pattern, policy_text, re.IGNORECASE)
-            results['coverage_limits'].extend(matches)
-        
-        deductible_patterns = [
-            r'\$[\d,]+\s*(?:deductible)',
-            r'(?:deductible).*?\$[\d,]+'
-        ]
-        
-        for pattern in deductible_patterns:
-            matches = re.findall(pattern, policy_text, re.IGNORECASE)
-            results['deductibles'].extend(matches)
-        
-        premium_patterns = [
-            r'\$[\d,]+\s*(?:premium|annual|monthly)',
-            r'(?:premium|annual).*?\$[\d,]+'
-        ]
-        
-        for pattern in premium_patterns:
-            matches = re.findall(pattern, policy_text, re.IGNORECASE)
-            results['premiums'].extend(matches)
-        
-        percentage_pattern = r'(\d+(?:\.\d+)?)\s*%'
-        percentages = re.findall(percentage_pattern, policy_text)
-        results['percentages'] = [float(p) for p in percentages]
-        
-        return results
