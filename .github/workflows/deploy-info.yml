@@ -1,0 +1,89 @@
+# This workflow provides information about deploying the Streamlit app
+# GitHub Pages cannot run Python applications - this is informational only
+
+name: Streamlit Deployment Info
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deployment-info:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Display Deployment Information
+      run: |
+        echo "╔════════════════════════════════════════════════════════════════╗"
+        echo "║                   STREAMLIT DEPLOYMENT INFO                    ║"
+        echo "╚════════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "⚠️  IMPORTANT: GitHub Pages cannot run Python/Streamlit apps!"
+        echo ""
+        echo "📌 Your GitHub Pages site shows static HTML (index.html)"
+        echo "   URL: https://stu-ops.github.io/Policy-Analyst/"
+        echo ""
+        echo "🚀 To run the Streamlit app, choose one of these options:"
+        echo ""
+        echo "OPTION 1: Run Locally"
+        echo "----------------------"
+        echo "1. Clone: git clone https://github.com/Stu-ops/Policy-Analyst.git"
+        echo "2. Install: pip install -r requirements.txt"
+        echo "3. Run: streamlit run app.py"
+        echo "4. Get API key from: https://aistudio.google.com/apikey"
+        echo ""
+        echo "OPTION 2: Deploy to Streamlit Cloud (Recommended)"
+        echo "--------------------------------------------------"
+        echo "1. Go to: https://share.streamlit.io/"
+        echo "2. Sign in with GitHub"
+        echo "3. Create new app from your repository"
+        echo "4. Set main file: app.py"
+        echo "5. Add GEMINI_API_KEY to secrets"
+        echo "6. Deploy!"
+        echo ""
+        echo "OPTION 3: Deploy to Other Platforms"
+        echo "------------------------------------"
+        echo "• Hugging Face Spaces: https://huggingface.co/spaces"
+        echo "• Render: https://render.com/"
+        echo "• Railway: https://railway.app/"
+        echo "• Heroku: https://heroku.com/"
+        echo ""
+        echo "✅ GitHub Pages (index.html) is working correctly!"
+        echo "   It provides instructions for running the Streamlit app."
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════"
+    
+    - name: Verify Files
+      run: |
+        echo ""
+        echo "📁 Verifying repository structure..."
+        echo ""
+        if [ -f "app.py" ]; then
+          echo "✓ app.py found (Streamlit application)"
+        else
+          echo "✗ app.py not found!"
+        fi
+        
+        if [ -f "requirements.txt" ]; then
+          echo "✓ requirements.txt found"
+        else
+          echo "✗ requirements.txt not found!"
+        fi
+        
+        if [ -f "index.html" ]; then
+          echo "✓ index.html found (GitHub Pages landing page)"
+        else
+          echo "✗ index.html not found!"
+        fi
+        
+        if [ -f "README.md" ]; then
+          echo "✓ README.md found"
+        else
+          echo "✗ README.md not found!"
+        fi
+        echo ""
+        echo "All checks complete!"

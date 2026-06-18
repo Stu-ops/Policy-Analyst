@@ -44,16 +44,39 @@ Unlike traditional RAG chatbots that follow a simple "retrieve-then-answer" loop
 
 ## 🚀 Getting Started
 
+> **📌 Note**: This is a Streamlit web application. GitHub Pages (https://stu-ops.github.io/Policy-Analyst/) shows a static landing page with instructions. To run the actual application, see the deployment options below.
+
 ### Prerequisites
 - Python 3.11+
 - Google Gemini API Key (get one at https://aistudio.google.com/apikey)
 
-### Installation
+### Quick Start (Local)
 
-The system is pre-configured with all dependencies. Simply:
+```bash
+# Clone the repository
+git clone https://github.com/Stu-ops/Policy-Analyst.git
+cd Policy-Analyst
 
-1. Add your `GEMINI_API_KEY` in Streamlit Interface Secrets
-2. Click "Run" to start the application
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+streamlit run app.py
+```
+
+Then:
+1. Open http://localhost:8501 in your browser
+2. Enter your `GEMINI_API_KEY` in the sidebar when prompted
+3. Upload policy documents and start chatting!
+
+### Deployment Options
+
+For production deployment, see **[DEPLOYMENT.md](DEPLOYMENT.md)** for detailed instructions on:
+- 🌐 **Streamlit Cloud** (Recommended - Free & Easy)
+- 🤗 **Hugging Face Spaces**
+- 🚂 **Railway**
+- 🎨 **Render**
+- And more...
 
 ### Using the Platform
 
